@@ -14,13 +14,15 @@ import { Story, StoryPage, VoiceName, ImageSize, AspectRatio, CustomProtagonist 
 import { deserializeStoryFromHash } from './utils/shareUtils';
 import { Sparkles } from 'lucide-react';
 
-const STORAGE_KEY = 'wondertales_stories_v2';
-const PROTAGONIST_STORAGE_KEY = 'wondertales_protagonist_v1';
+const STORAGE_KEY = 'vanalipi_stories_v3';
+const LEGACY_STORAGE_KEY = 'wondertales_stories_v2';
+const PROTAGONIST_STORAGE_KEY = 'vanalipi_protagonist_v2';
+const LEGACY_PROTAGONIST_STORAGE_KEY = 'wondertales_protagonist_v1';
 
 // Default starter protagonist
 const DEFAULT_PROTAGONIST: CustomProtagonist = {
   id: 'hero-maya',
-  name: 'Maya Sunbeam',
+  name: 'Maya Explorer',
   species: 'human-kid',
   hairStyle: 'curly-afro-puffs',
   hairColor: 'chestnut-brown',
@@ -29,16 +31,23 @@ const DEFAULT_PROTAGONIST: CustomProtagonist = {
   clothing: 'explorer-vest',
   outfitColor: 'sunburst-gold',
   accessory: 'starlight-badge',
-  description: 'Maya Sunbeam, a brave and curious 7-year-old human explorer kid with warm honey skin, fluffy curly chestnut-brown afro puffs, sparkling wide eyes, wearing a sunburst gold explorer vest and an enchanted glowing starlight badge.',
+  description: 'Maya Explorer, a brave and curious young adventurer kid with warm honey skin, sparkling wide eyes, blue explorer attire, and an enchanted magnifying glass deciphering the ancient Lipisutra sun temples.',
 };
 
 export default function App() {
   const [stories, setStories] = useState<Story[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Always ensure vanalipi-lipisutra is available at the front
+          const hasVanalipi = parsed.some((s: Story) => s.id === 'vanalipi-lipisutra');
+          if (!hasVanalipi) {
+            return [INITIAL_STORIES[0], ...parsed];
+          }
+          return parsed;
+        }
       }
     } catch (e) {
       console.warn('Could not load stored stories:', e);
@@ -48,7 +57,7 @@ export default function App() {
 
   const [currentProtagonist, setCurrentProtagonist] = useState<CustomProtagonist | null>(() => {
     try {
-      const saved = localStorage.getItem(PROTAGONIST_STORAGE_KEY);
+      const saved = localStorage.getItem(PROTAGONIST_STORAGE_KEY) || localStorage.getItem(LEGACY_PROTAGONIST_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.name) return parsed;
@@ -59,7 +68,7 @@ export default function App() {
     return DEFAULT_PROTAGONIST;
   });
 
-  const [currentStoryId, setCurrentStoryId] = useState<string>(INITIAL_STORIES[0].id);
+  const [currentStoryId, setCurrentStoryId] = useState<string>('vanalipi-lipisutra');
   const [currentPageIndex, setCurrentPageIndex] = useState<number>(0);
   const [selectedVoice, setSelectedVoice] = useState<VoiceName>('Kore');
   const [fontSize, setFontSize] = useState<number>(20);

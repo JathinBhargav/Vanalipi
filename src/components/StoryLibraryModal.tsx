@@ -95,7 +95,7 @@ export const StoryLibraryModal: React.FC<Props> = ({
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-amber-700 font-bold text-sm">
-                      📖 WonderTales
+                      📖 Vanalipi
                     </div>
                   )}
                   <span className="absolute top-2 right-2 text-[10px] font-bold bg-slate-900/75 text-white px-2 py-0.5 rounded-full backdrop-blur-xs">

@@ -26,7 +26,7 @@ export const PrintableComicBook: React.FC<Props> = ({
       {/* Cover / Header Banner */}
       <div className="comic-print-page border-4 border-black p-6 mb-8 text-center bg-yellow-50 rounded-2xl">
         <div className="inline-block bg-red-600 text-white font-bangers text-sm px-3 py-1 border-2 border-black tracking-wider uppercase mb-2">
-          WonderTales Comic Series
+          Vanalipi Comic Series
         </div>
         <h1 className="text-4xl font-black font-bangers uppercase tracking-wide mb-2 text-black">
           {story.title}

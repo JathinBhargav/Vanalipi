@@ -28,9 +28,11 @@ import {
 } from 'lucide-react';
 import { Story, VoiceName, CustomProtagonist, InteractiveElement } from '../types';
 import { VOICE_OPTIONS } from '../data/constants';
-import { playInteractiveSound } from '../utils/audioEffects';
+import { playInteractiveSound, playComicPageTurnSound } from '../utils/audioEffects';
 import { VoiceRecorderModal } from './VoiceRecorderModal';
 import { CharacterAvatar } from './CharacterAvatar';
+import { VanalipiComicSpread } from './VanalipiComicSpread';
+import { GandharaTriviaModal } from './GandharaTriviaModal';
 
 interface Props {
   story: Story;
@@ -92,8 +94,20 @@ export const StoryReader: React.FC<Props> = ({
   // Comic mode vs classic book mode (default is comic book mode!)
   const [isComicMode, setIsComicMode] = useState(true);
 
-  // CSS 3D page flip transition state
-  const [pageFlipClass, setPageFlipClass] = useState<'page-turning-next' | 'page-turning-prev' | ''>('');
+  // Dynamic Neo-Pop Multi-Panel Comic Spread View (matching reference image)
+  const [isSpreadMode, setIsSpreadMode] = useState(story.id === 'vanalipi-lipisutra');
+  const [isTriviaOpen, setIsTriviaOpen] = useState(false);
+
+  // Sync spread mode when story changes
+  useEffect(() => {
+    setIsSpreadMode(story.id === 'vanalipi-lipisutra');
+  }, [story.id]);
+
+  // Authentic Comic Book 3D Page Flip State
+  const [isFlipping, setIsFlipping] = useState(false);
+  const [flipDirection, setFlipDirection] = useState<'next' | 'prev'>('next');
+  const [flipFromIndex, setFlipFromIndex] = useState(currentPageIndex);
+  const [flipTargetIndex, setFlipTargetIndex] = useState(currentPageIndex);
   const flipTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Audio source selection: 'ai' | 'user'
@@ -134,27 +148,35 @@ export const StoryReader: React.FC<Props> = ({
   }, [currentPageIndex, story.id]);
 
   /**
-   * Direction-aware 3D CSS Page Flip Navigation
+   * Authentic Physical Comic Book 3D Page Turn
+   * Peels the page leaf across the center saddle-stitch spine with tactile paper rustle audio!
    */
   const handlePageTurn = (targetIndex: number, direction: 'next' | 'prev') => {
+    if (isFlipping) return;
     if (targetIndex < 0 || targetIndex >= totalPages || targetIndex === currentPageIndex) return;
 
     // Clear previous timer
     if (flipTimerRef.current) clearTimeout(flipTimerRef.current);
 
-    // Play subtle paper flip / rustle sound
-    playInteractiveSound('flutter');
+    // Stop currently playing voice narration
+    if (audioRef.current) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    }
 
-    // Trigger CSS 3D flip animation
-    setPageFlipClass(direction === 'next' ? 'page-turning-next' : 'page-turning-prev');
+    // Play tactile physical comic book paper turn sound (friction whoosh + snap)
+    playComicPageTurnSound();
 
-    // Change actual page
-    onPageChange(targetIndex);
+    setIsFlipping(true);
+    setFlipDirection(direction);
+    setFlipFromIndex(currentPageIndex);
+    setFlipTargetIndex(targetIndex);
 
-    // Reset animation class after animation completes (550ms)
+    // Complete the 3D page flip after the leaf crosses the spine (680ms)
     flipTimerRef.current = setTimeout(() => {
-      setPageFlipClass('');
-    }, 550);
+      onPageChange(targetIndex);
+      setIsFlipping(false);
+    }, 680);
   };
 
   // Keyboard navigation with 3D flip effect
@@ -345,6 +367,18 @@ export const StoryReader: React.FC<Props> = ({
           },
         ];
 
+  // Dynamic page allocation for open physical comic book spread & in-flight 3D flips
+  const leftPageIdx = Math.max(
+    0,
+    Math.min(totalPages - 1, isFlipping && flipDirection === 'prev' ? flipTargetIndex : currentPageIndex)
+  );
+  const rightPageIdx = Math.max(
+    0,
+    Math.min(totalPages - 1, isFlipping && flipDirection === 'next' ? flipTargetIndex : currentPageIndex)
+  );
+  const leftDisplayPage = story.pages[leftPageIdx] || page;
+  const rightDisplayPage = story.pages[rightPageIdx] || page;
+
   return (
     <div id="story-reader-container" className="w-full max-w-6xl mx-auto px-2 sm:px-4 py-3 sm:py-5">
       {/* Top Comic Bar: Category, Story Title, Protagonist & Mode Switcher */}
@@ -358,23 +392,67 @@ export const StoryReader: React.FC<Props> = ({
           </h2>
         </div>
 
-        {/* Action Controls: Share, Print, Comic Mode Toggle, Hero Badge, Text Size */}
+        {/* Action Controls: Neo-Pop Spread, Trivia, Share, Print, Comic Mode Toggle, Hero Badge, Text Size */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Comic Book Mode Toggle */}
+          {/* View Mode Toggle: Neo-Pop Spread (reference image) vs Studio Book */}
+          <div className="flex items-center bg-amber-200 border-2 border-black p-0.5 rounded-xl shadow-[2px_2px_0px_#000]">
+            <button
+              id="view-mode-spread-btn"
+              type="button"
+              onClick={() => setIsSpreadMode(true)}
+              className={`px-2.5 py-1 rounded-lg font-bangers text-xs transition-all flex items-center gap-1 border ${
+                isSpreadMode
+                  ? 'bg-[#fb923c] text-white border-black shadow-[1px_1px_0px_#000]'
+                  : 'bg-transparent text-black border-transparent hover:bg-amber-300'
+              }`}
+              title="Neo-Pop Irregular Comic Grid Layout as in Reference Image"
+            >
+              <span>🎨 NEO-POP SPREAD</span>
+            </button>
+            <button
+              id="view-mode-studio-btn"
+              type="button"
+              onClick={() => setIsSpreadMode(false)}
+              className={`px-2.5 py-1 rounded-lg font-bangers text-xs transition-all flex items-center gap-1 border ${
+                !isSpreadMode
+                  ? 'bg-[#fb923c] text-white border-black shadow-[1px_1px_0px_#000]'
+                  : 'bg-transparent text-black border-transparent hover:bg-amber-300'
+              }`}
+              title="Studio Book 3D Turning Page Mode"
+            >
+              <span>📖 STUDIO BOOK</span>
+            </button>
+          </div>
+
+          {/* Gandhara Lore Trivia Vault Trigger */}
           <button
-            id="toggle-comic-mode-btn"
+            id="reader-trivia-btn"
             type="button"
-            onClick={() => setIsComicMode(!isComicMode)}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-xl border-2 border-black text-xs font-bold font-comic shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all ${
-              isComicMode
-                ? 'bg-yellow-300 text-slate-950'
-                : 'bg-white text-slate-700 hover:bg-yellow-100'
-            }`}
-            title="Toggle between Comic Book layout and Classic Picture Book layout"
+            onClick={() => setIsTriviaOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#fde047] hover:bg-[#facc15] text-black border-2 border-black text-xs font-bangers tracking-wide shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all"
+            title="Open Gandhara & Lipisutra Ancient Trivia & Glyph Decoder"
           >
-            <Zap className="w-3.5 h-3.5 text-amber-600" />
-            <span>{isComicMode ? 'Comic Book: ON' : 'Comic Book: OFF'}</span>
+            <span className="text-sm">🏺</span>
+            <span>LORE VAULT</span>
           </button>
+
+          {/* Comic Book Mode Toggle (for studio book) */}
+          {!isSpreadMode && (
+            <button
+              id="toggle-comic-mode-btn"
+              type="button"
+              onClick={() => setIsComicMode(!isComicMode)}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-xl border-2 border-black text-xs font-bold font-comic shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all ${
+                isComicMode
+                  ? 'bg-yellow-300 text-slate-950'
+                  : 'bg-white text-slate-700 hover:bg-yellow-100'
+              }`}
+              title="Toggle between Comic Book layout and Classic Picture Book layout"
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-600" />
+              <span>{isComicMode ? 'Comic: ON' : 'Comic: OFF'}</span>
+            </button>
+          )}
 
           {/* Share Story Button */}
           {onOpenShareStory && (
@@ -456,38 +534,62 @@ export const StoryReader: React.FC<Props> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* 3D PERSPECTIVE WRAPPER WITH CSS PAGE FLIP TRANSITION                      */}
+      {/* AUTHENTIC OPEN COMIC BOOK STAGE & 3D PAGE-TURNING SPREAD                  */}
       {/* ========================================================================= */}
-      <div className="book-perspective w-full">
-        <div
-          id="storybook-book-card"
-          className={`page-flip-wrapper ${pageFlipClass} ${
-            isComicMode
-              ? 'comic-border-thick rounded-3xl bg-amber-50 shadow-[6px_6px_0px_#000]'
-              : 'border-2 border-amber-200 rounded-3xl bg-amber-50 shadow-xl'
-          } overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[550px] transition-all duration-300`}
-        >
-          {/* LEFT PANEL: Comic Artwork & Interactive Hotspots */}
+      {isSpreadMode ? (
+        <div className="w-full py-2">
+          <VanalipiComicSpread
+            onOpenTrivia={() => setIsTriviaOpen(true)}
+            onOpenIllustrationModal={onOpenIllustrationModal}
+            onOpenShareStory={onOpenShareStory}
+          />
+        </div>
+      ) : (
+        <div className="comic-book-perspective w-full py-2">
+        {/* Comic Studio Drafting Mat / Ambient Desk Surround */}
+        <div className="relative p-1 sm:p-3 bg-gradient-to-b from-amber-950/20 via-amber-900/10 to-amber-950/25 rounded-3xl">
+          
+          {/* Stacked Paper Edges (Visualizing Physical Book Thickness Underneath) */}
+          <div 
+            className="absolute -left-1 sm:-left-2 top-3 bottom-3 w-2 sm:w-2.5 rounded-l-md comic-paper-stack-left hidden sm:block pointer-events-none transition-all duration-500 z-10"
+            style={{ opacity: Math.min(1, 0.45 + (currentPageIndex / Math.max(1, totalPages - 1)) * 0.55) }}
+            title={`Pages Read: ${currentPageIndex + 1}`}
+          />
+          <div 
+            className="absolute -right-1 sm:-right-2 top-3 bottom-3 w-2 sm:w-2.5 rounded-r-md comic-paper-stack-right hidden sm:block pointer-events-none transition-all duration-500 z-10"
+            style={{ opacity: Math.min(1, 0.45 + ((totalPages - 1 - currentPageIndex) / Math.max(1, totalPages - 1)) * 0.55) }}
+            title={`Pages Remaining: ${totalPages - currentPageIndex}`}
+          />
+
+          {/* THE PHYSICAL OPEN COMIC BOOK SPREAD */}
           <div
-            id="page-illustration-panel"
-            className={`lg:col-span-6 p-4 sm:p-5 flex flex-col justify-between border-b lg:border-b-0 lg:border-r ${
-              isComicMode ? 'border-black bg-yellow-50/70' : 'border-amber-200 bg-amber-100/60'
-            }`}
+            id="storybook-comic-book"
+            className="comic-book-spread relative rounded-2xl overflow-hidden border-4 border-black shadow-[8px_8px_0px_#000] min-h-[580px] flex flex-col lg:flex-row bg-[#faf6eb]"
           >
-            {/* Top Comic Panel Header */}
-            <div className="flex items-center justify-between pb-2 mb-2">
-              <div className="flex items-center gap-1.5">
-                <span className="bg-red-500 text-white font-bangers text-xs px-2 py-0.5 rounded-sm border border-black tracking-wider shadow-[1px_1px_0px_#000]">
-                  PANEL {page.pageNumber}
-                </span>
-                <span className="text-xs font-comic font-bold text-slate-800">
-                  {story.title}
-                </span>
+            {/* ------------------------------------------------------------- */}
+            {/* LEFT PAGE: Comic Panel Artwork, Masthead & Interactive Hotspots */}
+            {/* ------------------------------------------------------------- */}
+            <div
+              id="page-illustration-panel"
+              className="relative flex-1 p-4 sm:p-5 flex flex-col justify-between border-b-4 lg:border-b-0 border-black bg-[#faf6eb] comic-newsprint-texture select-none"
+            >
+              {/* Vintage Comic Masthead Header */}
+              <div className="flex items-center justify-between pb-2 mb-2 border-b-2 border-black/15">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="bg-red-600 text-white font-bangers text-xs px-2 py-0.5 rounded border border-black tracking-wider shadow-[1px_1px_0px_#000]">
+                    PANEL {leftDisplayPage.pageNumber}
+                  </span>
+                  <span className="text-[11px] font-bangers tracking-wider text-slate-800 uppercase hidden sm:inline">
+                    ★ VANALIPI COMICS • 25¢ ★
+                  </span>
+                </div>
+
+                {/* Vintage Comics Code Authority Seal */}
+                <div className="flex items-center gap-1 bg-white border-2 border-black px-1.5 py-0.5 rounded shadow-[1px_1px_0px_#000] text-[9px] font-bangers text-black uppercase tracking-tight">
+                  <span className="text-red-600 font-black">★</span>
+                  <span>COMICS CODE APPROVED</span>
+                </div>
               </div>
-              <span className="text-[11px] font-comic font-bold text-amber-900 bg-amber-200/80 px-2 py-0.5 rounded-md border border-amber-300">
-                Page {page.pageNumber} / {totalPages}
-              </span>
-            </div>
 
             {/* Artwork Frame with Comic Outlines & Interactive Hotspots */}
             <div
@@ -495,10 +597,10 @@ export const StoryReader: React.FC<Props> = ({
                 isComicMode ? 'border-3 border-black shadow-[4px_4px_0px_#000]' : 'border border-amber-300'
               }`}
             >
-              {page.imageUrl ? (
+              {leftDisplayPage.imageUrl ? (
                 <img
-                  src={page.imageUrl}
-                  alt={`Comic panel illustration for page ${page.pageNumber}`}
+                  src={leftDisplayPage.imageUrl}
+                  alt={`Comic panel illustration for page ${leftDisplayPage.pageNumber}`}
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover transition-transform duration-500"
                 />
@@ -518,7 +620,7 @@ export const StoryReader: React.FC<Props> = ({
               <div className="absolute top-3 left-3 flex items-center gap-1.5 z-20">
                 <span className="text-[11px] font-bangers tracking-wider bg-black text-yellow-300 px-2.5 py-0.5 rounded-md border border-yellow-300 flex items-center gap-1 shadow-md">
                   <Sparkles className="w-3 h-3 text-yellow-300" />
-                  GEMINI 3 PRO ({page.imageSize || '1K'})
+                  GEMINI 3 PRO ({leftDisplayPage.imageSize || '1K'})
                 </span>
               </div>
 
@@ -671,31 +773,81 @@ export const StoryReader: React.FC<Props> = ({
             {/* Illustration Prompt & Paint Button Footer */}
             <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
               <div className="text-xs text-slate-700 font-comic font-semibold line-clamp-1 flex-1">
-                🎨 <span className="italic">{page.illustrationPrompt.slice(0, 55)}...</span>
+                🎨 <span className="italic">{leftDisplayPage.illustrationPrompt.slice(0, 55)}...</span>
               </div>
 
               <button
                 id="paint-illustration-btn"
                 onClick={onOpenIllustrationModal}
-                disabled={page.isGeneratingImage}
+                disabled={leftDisplayPage.isGeneratingImage}
                 className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bangers text-sm tracking-wide border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all shrink-0 disabled:opacity-50"
               >
                 <Palette className="w-4 h-4" />
                 <span>Paint Comic Art (1K/2K/4K)</span>
               </button>
             </div>
+
+            {/* Bottom Margin with Comic Page Number */}
+            <div className="pt-2 mt-2 flex items-center justify-between text-xs font-comic font-bold text-slate-600 border-t border-black/10">
+              <span className="font-mono text-slate-800">PAGE {leftDisplayPage.pageNumber * 2 - 1}</span>
+              <span className="italic text-[11px] text-amber-900 hidden sm:inline">Left Page (Panel Art)</span>
+            </div>
+
+            {/* Interactive Bottom-Left Dog-Ear Curl (Flip to Previous Page) */}
+            {currentPageIndex > 0 && !isFlipping && (
+              <div
+                id="comic-prev-corner-dog-ear"
+                onClick={() => handlePageTurn(currentPageIndex - 1, 'prev')}
+                className="comic-dog-ear-curl-left group/curl flex items-end justify-start p-1.5 cursor-pointer select-none"
+                title="Click or drag to turn back to previous comic page!"
+              >
+                <div className="font-bangers text-[10px] text-amber-950 font-black tracking-tighter opacity-80 group-hover/curl:opacity-100 group-hover/curl:scale-110 transition-transform">
+                  ⤺ PREV
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* RIGHT PANEL: Comic Story Narrative, Speech Balloon & Dual Narration Studio */}
+          {/* ------------------------------------------------------------- */}
+          {/* PHYSICAL COMIC BOOK CENTER SPINE: Crease Valley & Staples    */}
+          {/* ------------------------------------------------------------- */}
+          <div 
+            id="comic-book-center-spine"
+            className="hidden lg:flex w-7 sm:w-8 comic-spine-crease flex-col justify-between items-center py-6 relative z-20 select-none shrink-0"
+            title="Comic Book Saddle-Stitch Binding"
+          >
+            {/* Top Metallic Saddle Staple */}
+            <div className="flex flex-col items-center">
+              <div className="w-1.5 h-0.5 bg-black/70 rounded-full mb-0.5" />
+              <div className="comic-staple-metal w-2 h-8 rounded-sm shadow-md" />
+              <div className="w-1.5 h-0.5 bg-black/70 rounded-full mt-0.5" />
+            </div>
+
+            {/* Spine Text Label */}
+            <div className="rotate-90 text-[9px] font-bangers text-black/40 tracking-widest uppercase my-auto select-none">
+              FOLD
+            </div>
+
+            {/* Bottom Metallic Saddle Staple */}
+            <div className="flex flex-col items-center">
+              <div className="w-1.5 h-0.5 bg-black/70 rounded-full mb-0.5" />
+              <div className="comic-staple-metal w-2 h-8 rounded-sm shadow-md" />
+              <div className="w-1.5 h-0.5 bg-black/70 rounded-full mt-0.5" />
+            </div>
+          </div>
+
+          {/* ------------------------------------------------------------- */}
+          {/* RIGHT PAGE: Comic Story Narrative, Speech Balloon & Narration */}
+          {/* ------------------------------------------------------------- */}
           <div
             id="page-text-panel"
-            className="lg:col-span-6 p-4 sm:p-6 flex flex-col justify-between bg-amber-50/60"
+            className="relative flex-1 p-4 sm:p-6 flex flex-col justify-between bg-[#faf6eb] comic-newsprint-texture"
           >
             <div>
               {/* Comic Page Bar */}
               <div className="flex items-center justify-between pb-3 mb-3 border-b-2 border-black/15">
                 <span className="font-bangers text-lg text-slate-950 tracking-wider">
-                  PAGE {page.pageNumber} OF {totalPages}
+                  CHAPTER {rightDisplayPage.pageNumber}: {story.title.toUpperCase()}
                 </span>
 
                 {/* Page Progress Indicator with 3D flip triggers */}
@@ -724,11 +876,11 @@ export const StoryReader: React.FC<Props> = ({
                       ★ NARRATOR'S DISPATCH
                     </span>
                     <span className="text-[10px] font-comic font-bold text-yellow-900 bg-yellow-400 px-1.5 py-0.5 rounded border border-yellow-700">
-                      CHAPTER {page.pageNumber}
+                      CHAPTER {rightDisplayPage.pageNumber}
                     </span>
                   </div>
                   <p className="text-xs font-comic font-bold italic text-slate-950 line-clamp-2">
-                    "{page.illustrationPrompt.slice(0, 100)}..."
+                    "{rightDisplayPage.illustrationPrompt.slice(0, 100)}..."
                   </p>
                 </div>
               )}
@@ -746,7 +898,7 @@ export const StoryReader: React.FC<Props> = ({
                   className="font-comic font-bold text-slate-950 leading-relaxed sm:leading-loose tracking-wide transition-all select-text"
                   style={{ fontSize: `${fontSize}px` }}
                 >
-                  {page.text}
+                  {rightDisplayPage.text}
                 </div>
 
                 {/* Comic sound stickers row inside the speech balloon */}
@@ -984,7 +1136,7 @@ export const StoryReader: React.FC<Props> = ({
               <button
                 id="prev-page-btn"
                 onClick={() => handlePageTurn(currentPageIndex - 1, 'prev')}
-                disabled={currentPageIndex === 0}
+                disabled={currentPageIndex === 0 || isFlipping}
                 className="flex items-center gap-1 px-4 py-2 rounded-xl border-2 border-black bg-white hover:bg-amber-100 text-slate-950 font-bangers text-sm tracking-wide shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -1004,16 +1156,164 @@ export const StoryReader: React.FC<Props> = ({
               <button
                 id="next-page-btn"
                 onClick={() => handlePageTurn(currentPageIndex + 1, 'next')}
-                disabled={currentPageIndex === totalPages - 1}
+                disabled={currentPageIndex === totalPages - 1 || isFlipping}
                 className="flex items-center gap-1 px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bangers text-sm tracking-wide border-2 border-black shadow-[3px_3px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
                 <span>FLIP NEXT</span>
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
+
+            {/* Bottom Margin with Comic Page Number */}
+            <div className="pt-2 mt-2 flex items-center justify-between text-xs font-comic font-bold text-slate-600 border-t border-black/10">
+              <span className="italic text-[11px] text-amber-900 hidden sm:inline">Right Page (Story & Voice)</span>
+              <span className="font-mono text-slate-800">PAGE {rightDisplayPage.pageNumber * 2}</span>
+            </div>
+
+            {/* Interactive Bottom-Right Dog-Ear Curl (Turn to Next Page) */}
+            {currentPageIndex < totalPages - 1 && !isFlipping && (
+              <div
+                id="comic-turn-corner-dog-ear"
+                onClick={() => handlePageTurn(currentPageIndex + 1, 'next')}
+                className="comic-dog-ear-curl-right group/curl flex items-end justify-end p-1.5 cursor-pointer select-none"
+                title="Click or drag to turn to the next comic page!"
+              >
+                <div className="font-bangers text-[10px] text-amber-950 font-black tracking-tighter opacity-80 group-hover/curl:opacity-100 group-hover/curl:scale-110 transition-transform">
+                  FLIP ➔
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* ------------------------------------------------------------- */}
+          {/* ACTIVE 3D FLIPPING LEAF (Real Paper Peel & Turn Across Spine)  */}
+          {/* ------------------------------------------------------------- */}
+          {isFlipping && (
+            <div
+              className={`hidden lg:block comic-leaf-flipper ${
+                flipDirection === 'next' ? 'flipping-next' : 'flipping-prev'
+              }`}
+            >
+              {flipDirection === 'next' ? (
+                <>
+                  {/* Front Face: The previous right page lifting away */}
+                  <div className="comic-leaf-face comic-newsprint-texture border-y-4 border-r-4 border-black p-5 flex flex-col justify-between shadow-2xl bg-[#faf6eb]">
+                    <div className="relative z-10 opacity-90">
+                      <div className="flex items-center justify-between pb-2 border-b-2 border-black/20 mb-3">
+                        <span className="font-bangers text-xs tracking-wider uppercase text-black">
+                          ★ CHAPTER {story.pages[flipFromIndex]?.pageNumber}
+                        </span>
+                        <span className="text-[10px] font-comic font-bold text-slate-700">TURNING PAGE...</span>
+                      </div>
+                      <div className="bg-yellow-300 border-2 border-black rounded-lg p-2.5 mb-3 shadow-[2px_2px_0px_#000]">
+                        <p className="text-xs font-comic font-bold italic text-slate-900 line-clamp-2">
+                          "{story.pages[flipFromIndex]?.illustrationPrompt.slice(0, 90)}..."
+                        </p>
+                      </div>
+                      <div className="bg-white border-2 border-black rounded-xl p-4 shadow-[3px_3px_0px_#000]">
+                        <p className="font-comic font-bold text-slate-900 text-sm leading-relaxed line-clamp-6">
+                          {story.pages[flipFromIndex]?.text}
+                        </p>
+                      </div>
+                    </div>
+                    {/* Dynamic shading gradient as page lifts */}
+                    <div className="absolute inset-0 bg-gradient-to-l from-black/30 via-black/10 to-transparent pointer-events-none" />
+                  </div>
+
+                  {/* Back Face: Reverse side of the physical comic paper */}
+                  <div className="comic-leaf-face comic-leaf-back comic-newsprint-texture border-y-4 border-l-4 border-black p-6 flex flex-col justify-between items-center text-center shadow-2xl bg-[#f4ebd6]">
+                    <div className="w-full flex items-center justify-between pb-2 border-b-2 border-black/20">
+                      <span className="font-bangers text-[11px] tracking-wider text-black">VANALIPI COMIC CLASSICS</span>
+                      <span className="font-bangers text-[10px] text-red-600">PAGE REVERSE</span>
+                    </div>
+
+                    {/* Vintage comic emblem watermark */}
+                    <div className="my-auto flex flex-col items-center opacity-85 py-4">
+                      <div className="w-16 h-16 rounded-full border-3 border-dashed border-amber-800/40 flex items-center justify-center mb-2 bg-amber-200/40">
+                        <BookOpen className="w-8 h-8 text-amber-900/60" />
+                      </div>
+                      <div className="font-bangers text-lg text-slate-900 tracking-wide">
+                        CHAPTER {story.pages[flipTargetIndex]?.pageNumber} AHEAD!
+                      </div>
+                      <p className="font-comic text-xs font-bold text-amber-950 max-w-xs mt-1">
+                        "{story.title}"
+                      </p>
+                      <div className="mt-2.5 px-3 py-1 bg-yellow-300 border border-black text-[10px] font-bangers rounded shadow-sm text-black">
+                        ★ COMICS CODE APPROVED ★
+                      </div>
+                    </div>
+
+                    <div className="w-full text-right text-[10px] font-comic font-bold text-slate-500">
+                      Page {story.pages[flipTargetIndex]?.pageNumber * 2 - 1}
+                    </div>
+                    {/* Landing shadow */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-transparent to-black/10 pointer-events-none" />
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Front Face: The previous left page lifting away */}
+                  <div className="comic-leaf-face comic-newsprint-texture border-y-4 border-l-4 border-black p-5 flex flex-col justify-between shadow-2xl bg-[#faf6eb]">
+                    <div className="relative z-10 opacity-90">
+                      <div className="flex items-center justify-between pb-2 border-b-2 border-black/20 mb-3">
+                        <span className="font-bangers text-xs tracking-wider uppercase text-black">
+                          ★ PANEL {story.pages[flipFromIndex]?.pageNumber}
+                        </span>
+                        <span className="text-[10px] font-comic font-bold text-slate-700">FLIPPING BACK...</span>
+                      </div>
+                      <div className="w-full aspect-4/3 rounded-xl overflow-hidden border-2 border-black shadow bg-amber-100 flex items-center justify-center">
+                        {story.pages[flipFromIndex]?.imageUrl ? (
+                          <img
+                            src={story.pages[flipFromIndex]?.imageUrl}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <Palette className="w-10 h-10 text-amber-600" />
+                        )}
+                      </div>
+                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-black/30 via-black/10 to-transparent pointer-events-none" />
+                  </div>
+
+                  {/* Back Face: Reverse of left page */}
+                  <div className="comic-leaf-face comic-leaf-back comic-newsprint-texture border-y-4 border-r-4 border-black p-6 flex flex-col justify-between items-center text-center shadow-2xl bg-[#f4ebd6]">
+                    <div className="w-full flex items-center justify-between pb-2 border-b-2 border-black/20">
+                      <span className="font-bangers text-[11px] tracking-wider text-black">VANALIPI COMIC CLASSICS</span>
+                      <span className="font-bangers text-[10px] text-red-600">PAGE REVERSE</span>
+                    </div>
+
+                    <div className="my-auto flex flex-col items-center opacity-85 py-4">
+                      <div className="w-16 h-16 rounded-full border-3 border-dashed border-amber-800/40 flex items-center justify-center mb-2 bg-amber-200/40">
+                        <BookOpen className="w-8 h-8 text-amber-900/60" />
+                      </div>
+                      <div className="font-bangers text-lg text-slate-900 tracking-wide">
+                        RETURNING TO CHAPTER {story.pages[flipTargetIndex]?.pageNumber}
+                      </div>
+                      <p className="font-comic text-xs font-bold text-amber-950 max-w-xs mt-1">
+                        "{story.title}"
+                      </p>
+                    </div>
+
+                    <div className="w-full text-left text-[10px] font-comic font-bold text-slate-500">
+                      Page {story.pages[flipTargetIndex]?.pageNumber * 2}
+                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-l from-black/20 via-transparent to-black/10 pointer-events-none" />
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
+    </div>
+      )}
+
+      {/* Gandhara Lore & Lipisutra Ancient Trivia Modal */}
+      <GandharaTriviaModal
+        isOpen={isTriviaOpen}
+        onClose={() => setIsTriviaOpen(false)}
+      />
 
       {/* Voice Recorder Modal */}
       <VoiceRecorderModal

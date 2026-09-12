@@ -281,3 +281,70 @@ export function playInteractiveSound(type: InteractiveSoundType) {
     console.warn('Audio effects error:', err);
   }
 }
+
+/**
+ * Generates a realistic physical comic book page turn sound:
+ * Combines paper friction whoosh, bandpass noise flutter, and gentle page landing snap.
+ */
+export function playComicPageTurnSound() {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+
+    // 1. White noise buffer for paper scrape & whoosh
+    const bufferSize = Math.floor(ctx.sampleRate * 0.42); // 420ms
+    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      output[i] = Math.random() * 2 - 1;
+    }
+
+    const whiteNoise = ctx.createBufferSource();
+    whiteNoise.buffer = noiseBuffer;
+
+    // Filter noise to sound like paper texture
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1100, now);
+    filter.frequency.exponentialRampToValueAtTime(3200, now + 0.18);
+    filter.frequency.exponentialRampToValueAtTime(800, now + 0.4);
+    filter.Q.setValueAtTime(2.2, now);
+
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0, now);
+    noiseGain.gain.linearRampToValueAtTime(0.25, now + 0.08);
+    noiseGain.gain.linearRampToValueAtTime(0.18, now + 0.22);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+
+    whiteNoise.connect(filter);
+    filter.connect(noiseGain);
+    noiseGain.connect(ctx.destination);
+
+    whiteNoise.start(now);
+    whiteNoise.stop(now + 0.42);
+
+    // 2. Low-frequency paper snap / landing thud
+    const snapOsc = ctx.createOscillator();
+    const snapGain = ctx.createGain();
+
+    snapOsc.type = 'triangle';
+    snapOsc.frequency.setValueAtTime(130, now + 0.22);
+    snapOsc.frequency.exponentialRampToValueAtTime(45, now + 0.4);
+
+    snapGain.gain.setValueAtTime(0, now);
+    snapGain.gain.setValueAtTime(0, now + 0.22);
+    snapGain.gain.linearRampToValueAtTime(0.16, now + 0.25);
+    snapGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+    snapOsc.connect(snapGain);
+    snapGain.connect(ctx.destination);
+
+    snapOsc.start(now + 0.22);
+    snapOsc.stop(now + 0.4);
+  } catch (err) {
+    console.warn('Comic page turn sound error:', err);
+  }
+}
+

@@ -1,5 +1,5 @@
 {
-  "name": "WonderTales: Kids Storybook & Read-Aloud Illustrator",
+  "name": "Vanalipi",
   "description": "An interactive comic book and storybook app for kids with expressive AI voices, cartoon comic panel layouts, 3D CSS page flip transitions, URL-hash story sharing, physical comic printing, and hero creator featured in illustrations.",
   "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

@@ -88,7 +88,7 @@ export const CompanionChatDrawer: React.FC<Props> = ({
 
     try {
       // Build conversation payload for Gemini server endpoint
-      const storyContext = `Active Story: "${activeStoryTitle || 'WonderTales'}"\nCurrent Page Content:\n"${activePageText || ''}"`;
+      const storyContext = `Active Story: "${activeStoryTitle || 'Vanalipi'}"\nCurrent Page Content:\n"${activePageText || ''}"`;
 
       const res = await fetch('/api/chat', {
         method: 'POST',
